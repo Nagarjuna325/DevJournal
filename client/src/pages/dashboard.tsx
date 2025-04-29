@@ -187,6 +187,9 @@ export default function Dashboard() {
     return days;
   };
 
+  // State to track which issue is being edited
+  const [issueToEdit, setIssueToEdit] = useState<number | null>(null);
+  
   // Form handling functions
   const handleNewIssue = () => {
     const newIssue = {
@@ -208,12 +211,24 @@ export default function Dashboard() {
       }))
     };
     
-    // Save to database
-    saveIssueToDatabase(newIssue);
+    if (issueToEdit !== null) {
+      // Update existing issue
+      const updatedIssues = issues.map(issue => 
+        issue.id === issueToEdit ? { ...newIssue, id: issueToEdit } : issue
+      );
+      setIssues(updatedIssues);
+      console.log("✅ Successfully updated issue:", { ...newIssue, id: issueToEdit });
+      alert("Issue updated successfully!");
+    } else {
+      // Save new issue to database
+      saveIssueToDatabase(newIssue);
+      
+      // Add to local state
+      setIssues([...issues, newIssue]);
+    }
     
-    // Add to local state
-    setIssues([...issues, newIssue]);
     setIsNewIssueDialogOpen(false);
+    setIssueToEdit(null);
     
     // Reset form fields
     setIssueTitle("");
@@ -226,6 +241,30 @@ export default function Dashboard() {
     setSelectedTags([]);
     setLinks([]);
     setFileAttachments([]);
+  };
+  
+  // Function to handle editing an issue
+  const handleEditIssue = (id: number) => {
+    const issueToEdit = issues.find(issue => issue.id === id);
+    if (issueToEdit) {
+      // Populate form with issue data
+      setIssueTitle(issueToEdit.title);
+      setIssueDescription(issueToEdit.description);
+      setStepsToReproduce(issueToEdit.stepsToReproduce || "");
+      setSolution(issueToEdit.solution || "");
+      setSelectedTags(issueToEdit.tags || []);
+      setLinks(issueToEdit.links || []);
+      
+      // For files, we can't directly edit them since they're immutable
+      // In a real app, you'd need to handle file uploads differently
+      setFileAttachments([]);
+      
+      // Set the issue being edited
+      setIssueToEdit(id);
+      
+      // Open the dialog
+      setIsNewIssueDialogOpen(true);
+    }
   };
 
   // This would be connected to your backend in a real app
@@ -534,9 +573,12 @@ export default function Dashboard() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Create New Issue</DialogTitle>
+                      <DialogTitle>{issueToEdit !== null ? "Edit Issue" : "Create New Issue"}</DialogTitle>
                       <DialogDescription>
-                        Document a new coding issue you've encountered.
+                        {issueToEdit !== null 
+                          ? "Update the details of this issue." 
+                          : "Document a new coding issue you've encountered."
+                        }
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -708,7 +750,7 @@ export default function Dashboard() {
                           onClick={handleNewIssue}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          Save Issue
+                          {issueToEdit !== null ? "Update Issue" : "Save Issue"}
                         </Button>
                       </div>
                     </div>
@@ -774,7 +816,17 @@ export default function Dashboard() {
                         <Button 
                           variant="outline" 
                           size="sm"
+                          className="bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+                          onClick={() => handleEditIssue(issue.id)}
+                          title="Edit issue"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
                           onClick={() => handleDeleteIssue(issue.id)}
+                          title="Delete issue"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -782,6 +834,7 @@ export default function Dashboard() {
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleToggleIssueDetails(issue.id)}
+                          title={isDetailViewOpen === issue.id ? "Collapse" : "Expand"}
                         >
                           <ChevronDown className={`h-4 w-4 transform transition-transform ${isDetailViewOpen === issue.id ? 'rotate-180' : ''}`} />
                         </Button>
