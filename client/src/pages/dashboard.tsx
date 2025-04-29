@@ -1,28 +1,65 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ChevronLeft, ChevronRight, Plus, Search, CalendarIcon, Home, Archive, Tag, Link2, ChevronDown } from "lucide-react";
-import { format, addDays, subDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus, 
+  Search, 
+  CalendarIcon, 
+  Home, 
+  Archive, 
+  Tag, 
+  Link2, 
+  ChevronDown, 
+  PanelLeftClose, 
+  PanelLeftOpen,
+  Settings,
+  User,
+  LogOut,
+  Moon,
+  Sun
+} from "lucide-react";
+import { format, addDays, subDays, addMonths, subMonths, getMonth, getYear, startOfMonth, getDay, getDaysInMonth } from "date-fns";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { requestAiSuggestions } from "@/lib/ai-service";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isNewIssueDialogOpen, setIsNewIssueDialogOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [issueTitle, setIssueTitle] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
   const [stepsToReproduce, setStepsToReproduce] = useState("");
   const [solution, setSolution] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState<{id: number, name: string, color: string}[]>([
+    { id: 1, name: "React", color: "#61dafb" },
+    { id: 2, name: "Frontend", color: "#f56565" },
+    { id: 3, name: "API", color: "#48bb78" }
+  ]);
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
-  const [currentMonth, setCurrentMonth] = useState(format(new Date(), "MMMM yyyy"));
+  const [links, setLinks] = useState<{title: string, url: string}[]>([]);
+  const [currentViewMonth, setCurrentViewMonth] = useState<Date>(new Date());
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
 
   // Mock data for issues
   const [issues, setIssues] = useState([
@@ -31,10 +68,21 @@ export default function Dashboard() {
       title: "Reacted",
       description: "Changing the Frontend bug.",
       date: new Date(2025, 3, 8),
-      status: "resolved"
+      status: "resolved",
+      tags: [1, 2]
     }
   ]);
 
+  // Toggle dark/light mode
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  // Navigation functions
   const handlePreviousDay = () => {
     setSelectedDate(prev => subDays(prev, 1));
   };
@@ -43,13 +91,66 @@ export default function Dashboard() {
     setSelectedDate(prev => addDays(prev, 1));
   };
 
+  const handlePreviousMonth = () => {
+    setCurrentViewMonth(prev => subMonths(prev, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentViewMonth(prev => addMonths(prev, 1));
+  };
+
+  // Generate calendar days for the current month view
+  const generateCalendarDays = () => {
+    const monthStart = startOfMonth(currentViewMonth);
+    const startDay = getDay(monthStart); // 0 = Sunday, 1 = Monday, etc.
+    const daysInMonth = getDaysInMonth(currentViewMonth);
+    
+    const days = [];
+    
+    // Previous month days
+    for (let i = 0; i < startDay; i++) {
+      days.push({ 
+        day: new Date(getYear(currentViewMonth), getMonth(currentViewMonth) - 1, 0).getDate() - (startDay - i - 1),
+        isCurrentMonth: false,
+        date: new Date(getYear(currentViewMonth), getMonth(currentViewMonth) - 1, 0 - (startDay - i - 1))
+      });
+    }
+    
+    // Current month days
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(getYear(currentViewMonth), getMonth(currentViewMonth), i);
+      days.push({ 
+        day: i, 
+        isCurrentMonth: true,
+        date,
+        hasIssues: issues.some(issue => 
+          format(issue.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        )
+      });
+    }
+    
+    // Next month days
+    const remainingDays = 42 - days.length; // 6 rows * 7 days = 42
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({ 
+        day: i, 
+        isCurrentMonth: false,
+        date: new Date(getYear(currentViewMonth), getMonth(currentViewMonth) + 1, i)
+      });
+    }
+    
+    return days;
+  };
+
+  // Form handling functions
   const handleNewIssue = () => {
     const newIssue = {
       id: issues.length + 1,
       title: issueTitle,
       description: issueDescription,
       date: selectedDate,
-      status: "unresolved"
+      status: "unresolved",
+      tags: selectedTags
     };
     
     setIssues([...issues, newIssue]);
@@ -63,6 +164,51 @@ export default function Dashboard() {
     setTagInput("");
     setLinkTitle("");
     setLinkUrl("");
+    setSelectedTags([]);
+    setLinks([]);
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim()) {
+      const newTag = {
+        id: tags.length + 1,
+        name: tagInput.trim(),
+        color: getRandomColor()
+      };
+      setTags([...tags, newTag]);
+      setTagInput("");
+    }
+  };
+
+  const handleSelectTag = (tagId: number) => {
+    if (selectedTags.includes(tagId)) {
+      setSelectedTags(selectedTags.filter(id => id !== tagId));
+    } else {
+      setSelectedTags([...selectedTags, tagId]);
+    }
+  };
+
+  const handleAddLink = () => {
+    if (linkTitle.trim() && linkUrl.trim()) {
+      setLinks([...links, { title: linkTitle.trim(), url: linkUrl.trim() }]);
+      setLinkTitle("");
+      setLinkUrl("");
+    }
+  };
+
+  const handleRemoveLink = (index: number) => {
+    const newLinks = [...links];
+    newLinks.splice(index, 1);
+    setLinks(newLinks);
+  };
+
+  const handleSelectDay = (day: number, date: Date) => {
+    setSelectedDate(date);
+  };
+
+  const getRandomColor = () => {
+    const colors = ["#f56565", "#ed8936", "#ecc94b", "#48bb78", "#38b2ac", "#4299e1", "#667eea", "#9f7aea", "#ed64a6"];
+    return colors[Math.floor(Math.random() * colors.length)];
   };
 
   const getAiSuggestions = async () => {
@@ -80,16 +226,57 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col">
       {/* Top Navigation */}
       <header className="bg-primary text-white p-4 flex justify-between items-center shadow-md">
-        <div className="text-xl font-bold">DevIssueTracker</div>
+        <div className="flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="mr-2 text-white" 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          </Button>
+          <div className="text-xl font-bold">DevIssueTracker</div>
+        </div>
         <div className="flex space-x-4 items-center">
-          <span>Welcome, {user?.username}</span>
-          <Button variant="outline" onClick={() => logoutMutation.mutate()}>Logout</Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-white hover:bg-primary-700"
+            onClick={() => setIsDarkMode(!isDarkMode)}
+          >
+            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center space-x-2">
+                <span>Welcome, {user?.username}</span>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuItem className="cursor-pointer">
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => setIsSettingsDialogOpen(true)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer" onClick={() => logoutMutation.mutate()}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="w-64 bg-gray-50 dark:bg-gray-800 p-4 border-r border-gray-200 dark:border-gray-700">
+        <aside className={`${isSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-64'} transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-800 p-4 border-r border-gray-200 dark:border-gray-700`}>
           <nav className="space-y-8">
             <div>
               <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
@@ -112,9 +299,15 @@ export default function Dashboard() {
               </h3>
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
-                  <ChevronLeft className="h-4 w-4 cursor-pointer" />
-                  <span className="font-medium">April 2025</span>
-                  <ChevronRight className="h-4 w-4 cursor-pointer" />
+                  <ChevronLeft 
+                    className="h-4 w-4 cursor-pointer" 
+                    onClick={handlePreviousMonth}
+                  />
+                  <span className="font-medium">{format(currentViewMonth, "MMMM yyyy")}</span>
+                  <ChevronRight 
+                    className="h-4 w-4 cursor-pointer" 
+                    onClick={handleNextMonth}
+                  />
                 </div>
                 <div className="grid grid-cols-7 gap-1 text-xs">
                   <div className="text-center font-medium">Su</div>
@@ -125,39 +318,44 @@ export default function Dashboard() {
                   <div className="text-center font-medium">Fr</div>
                   <div className="text-center font-medium">Sa</div>
                   
-                  {/* Example calendar days */}
-                  <div className="text-center p-1 text-gray-400">30</div>
-                  <div className="text-center p-1 text-gray-400">31</div>
-                  <div className="text-center p-1">1</div>
-                  <div className="text-center p-1">2</div>
-                  <div className="text-center p-1">3</div>
-                  <div className="text-center p-1">4</div>
-                  <div className="text-center p-1">5</div>
-                  
-                  <div className="text-center p-1">6</div>
-                  <div className="text-center p-1">7</div>
-                  <div className="text-center p-1 rounded-full bg-primary text-white">8</div>
-                  <div className="text-center p-1">9</div>
-                  <div className="text-center p-1">10</div>
-                  <div className="text-center p-1">11</div>
-                  <div className="text-center p-1">12</div>
-                  
-                  <div className="text-center p-1">13</div>
-                  <div className="text-center p-1">14</div>
-                  <div className="text-center p-1">15</div>
-                  <div className="text-center p-1">16</div>
-                  <div className="text-center p-1">17</div>
-                  <div className="text-center p-1">18</div>
-                  <div className="text-center p-1">19</div>
-                  
-                  <div className="text-center p-1">20</div>
-                  <div className="text-center p-1">21</div>
-                  <div className="text-center p-1">22</div>
-                  <div className="text-center p-1">23</div>
-                  <div className="text-center p-1">24</div>
-                  <div className="text-center p-1">25</div>
-                  <div className="text-center p-1">26</div>
+                  {/* Dynamic calendar days */}
+                  {generateCalendarDays().map((day, index) => (
+                    <div 
+                      key={index} 
+                      className={`
+                        text-center p-1 cursor-pointer
+                        ${!day.isCurrentMonth ? 'text-gray-400' : ''}
+                        ${day.isCurrentMonth && format(day.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') 
+                          ? 'rounded-full bg-primary text-white' 
+                          : ''
+                        }
+                        ${day.hasIssues && day.isCurrentMonth ? 'font-bold' : ''}
+                        hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full
+                      `}
+                      onClick={() => handleSelectDay(day.day, day.date)}
+                    >
+                      {day.day}
+                    </div>
+                  ))}
                 </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center justify-between">
+                TAGS
+                <Tag className="h-4 w-4" />
+              </h3>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {tags.map(tag => (
+                  <Badge 
+                    key={tag.id} 
+                    style={{ backgroundColor: tag.color }}
+                    className="cursor-pointer"
+                  >
+                    {tag.name}
+                  </Badge>
+                ))}
               </div>
             </div>
           </nav>
@@ -187,6 +385,9 @@ export default function Dashboard() {
                   <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Create New Issue</DialogTitle>
+                      <DialogDescription>
+                        Document a new coding issue you've encountered.
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
@@ -250,20 +451,51 @@ export default function Dashboard() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="tags">Tags</Label>
+                        <Label>Tags</Label>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {tags.map(tag => (
+                            <Badge 
+                              key={tag.id} 
+                              style={{ 
+                                backgroundColor: selectedTags.includes(tag.id) ? tag.color : 'transparent',
+                                color: selectedTags.includes(tag.id) ? 'white' : 'currentColor',
+                                borderColor: tag.color,
+                                borderWidth: '1px'
+                              }}
+                              className="cursor-pointer"
+                              onClick={() => handleSelectTag(tag.id)}
+                            >
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
                         <div className="flex space-x-2">
                           <Input 
-                            id="tags" 
-                            placeholder="Add a tag"
+                            placeholder="Add a new tag"
                             value={tagInput}
                             onChange={(e) => setTagInput(e.target.value)}
                           />
-                          <Button variant="outline">Add</Button>
+                          <Button variant="outline" onClick={handleAddTag}>Add</Button>
                         </div>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="links">Links</Label>
+                        <Label>Links</Label>
+                        {links.length > 0 && (
+                          <div className="space-y-2 mb-2">
+                            {links.map((link, index) => (
+                              <div key={index} className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                                <div>
+                                  <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline truncate max-w-xs block">
+                                    {link.title}
+                                  </a>
+                                  <span className="text-xs text-gray-500 truncate max-w-xs block">{link.url}</span>
+                                </div>
+                                <Button size="sm" variant="ghost" onClick={() => handleRemoveLink(index)}>×</Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex space-x-2 mb-2">
                           <Input 
                             placeholder="Link title"
@@ -275,7 +507,7 @@ export default function Dashboard() {
                             value={linkUrl}
                             onChange={(e) => setLinkUrl(e.target.value)}
                           />
-                          <Button variant="outline">Add</Button>
+                          <Button variant="outline" onClick={handleAddLink}>Add</Button>
                         </div>
                       </div>
                       
@@ -316,7 +548,23 @@ export default function Dashboard() {
                 .map(issue => (
                   <Card key={issue.id} className="overflow-hidden">
                     <CardHeader className="p-4 bg-gray-50 dark:bg-gray-700 flex flex-row items-center justify-between">
-                      <CardTitle className="text-lg font-medium">{issue.title}</CardTitle>
+                      <div>
+                        <CardTitle className="text-lg font-medium">{issue.title}</CardTitle>
+                        <div className="flex mt-2 gap-1">
+                          {issue.tags?.map(tagId => {
+                            const tag = tags.find(t => t.id === tagId);
+                            return tag ? (
+                              <Badge 
+                                key={tagId} 
+                                style={{ backgroundColor: tag.color }}
+                                className="text-xs"
+                              >
+                                {tag.name}
+                              </Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
                       <Button variant="ghost" size="sm">
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -346,6 +594,45 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
+      
+      {/* Settings Dialog */}
+      <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Customize your experience
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dark-mode">Dark Mode</Label>
+              <Button 
+                variant={isDarkMode ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+              >
+                {isDarkMode ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                {isDarkMode ? "Light Mode" : "Dark Mode"}
+              </Button>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Account Settings</Label>
+              <div className="space-y-2">
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <User className="h-4 w-4 mr-2" />
+                  Update Profile
+                </Button>
+                <Button variant="outline" size="sm" className="w-full justify-start">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Change Password
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
