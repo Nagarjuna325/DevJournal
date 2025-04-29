@@ -3,12 +3,12 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/lib/protected-route";
-import Dashboard from "@/pages/dashboard";
-import AuthPage from "@/pages/auth-page";
 import { ThemeProvider } from "@/components/theme-provider";
+import NotFound from "@/pages/not-found";
+import AuthPage from "@/pages/auth-page";
+import Dashboard from "@/pages/dashboard";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function Router() {
   return (
@@ -23,7 +23,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="bug-tracker-theme">
+      <ThemeProvider defaultTheme="light" storageKey="devissuetracker-theme">
         <AuthProvider>
           <TooltipProvider>
             <Toaster />

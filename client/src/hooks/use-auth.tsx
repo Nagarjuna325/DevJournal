@@ -4,85 +4,89 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { insertUserSchema, User as SelectUser, InsertUser, LoginUser } from "@shared/schema";
+import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type AuthContextType = {
-  user: Omit<SelectUser, "password"> | null;
+  user: SelectUser | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<Omit<SelectUser, "password">, Error, LoginUser>;
+  loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<Omit<SelectUser, "password">, Error, InsertUser>;
+  registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
 };
+
+type LoginData = Pick<InsertUser, "username" | "password">;
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  
   const {
     data: user,
     error,
     isLoading,
-  } = useQuery<Omit<SelectUser, "password"> | undefined, Error>({
+  } = useQuery<SelectUser | null>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: LoginUser) => {
+  const loginMutation = useMutation<SelectUser, Error, LoginData>({
+    mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: Omit<SelectUser, "password">) => {
+    onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Login successful",
-        description: `Welcome back, ${user.name}!`,
+        description: `Welcome back, ${user.username}!`,
       });
+      setLocation("/");
     },
     onError: (error: Error) => {
       toast({
         title: "Login failed",
-        description: error.message || "Invalid credentials",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const registerMutation = useMutation({
+  const registerMutation = useMutation<SelectUser, Error, InsertUser>({
     mutationFn: async (credentials: InsertUser) => {
       const res = await apiRequest("POST", "/api/register", credentials);
       return await res.json();
     },
-    onSuccess: (user: Omit<SelectUser, "password">) => {
+    onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registration successful",
-        description: `Welcome, ${user.name}!`,
+        description: `Welcome, ${user.username}!`,
       });
+      setLocation("/");
     },
     onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: error.message || "Unable to create account",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const logoutMutation = useMutation({
+  const logoutMutation = useMutation<void, Error, void>({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
-      queryClient.invalidateQueries({ queryKey: ["/api/issues"] });
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out",
-      });
+      toast({ title: "Logged out successfully" });
+      setLocation("/auth");
     },
     onError: (error: Error) => {
       toast({

@@ -30,13 +30,15 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "dev-secret-key",
+    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+      sameSite: "lax",
     }
   };
 
@@ -54,8 +56,8 @@ export function setupAuth(app: Express) {
         } else {
           return done(null, user);
         }
-      } catch (error) {
-        return done(error);
+      } catch (err) {
+        return done(err);
       }
     }),
   );
@@ -65,8 +67,8 @@ export function setupAuth(app: Express) {
     try {
       const user = await storage.getUser(id);
       done(null, user);
-    } catch (error) {
-      done(error);
+    } catch (err) {
+      done(err);
     }
   });
 
@@ -82,18 +84,33 @@ export function setupAuth(app: Express) {
         password: await hashPassword(req.body.password),
       });
 
+      // Remove password from the response
+      const userWithoutPassword = { ...user, password: undefined };
+
       req.login(user, (err) => {
         if (err) return next(err);
-        return res.status(201).json({ id: user.id, username: user.username, displayName: user.displayName });
+        res.status(201).json(userWithoutPassword);
       });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    const user = req.user as SelectUser;
-    res.status(200).json({ id: user.id, username: user.username, displayName: user.displayName });
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) return next(err);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      
+      req.login(user, (err) => {
+        if (err) return next(err);
+        
+        // Remove password from the response
+        const userWithoutPassword = { ...user, password: undefined };
+        res.status(200).json(userWithoutPassword);
+      });
+    })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -105,7 +122,9 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const user = req.user as SelectUser;
-    res.json({ id: user.id, username: user.username, displayName: user.displayName });
+    
+    // Remove password from the response
+    const userWithoutPassword = { ...req.user, password: undefined };
+    res.json(userWithoutPassword);
   });
 }
