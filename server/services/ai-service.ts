@@ -1,13 +1,5 @@
-import OpenAI from "openai";
-
-// Initialize OpenAI client
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// The newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const MODEL = "gpt-4o";
-
 /**
- * Uses AI to suggest potential solutions for a bug based on description and reproduction steps
+ * Uses predefined solutions to suggest fixes for bugs
  * 
  * @param description The bug description
  * @param stepsToReproduce Optional steps to reproduce the bug
@@ -17,68 +9,96 @@ export async function suggestSolution(
   description: string,
   stepsToReproduce?: string
 ): Promise<string> {
-  try {
-    // Create a prompt that includes all available information
-    let prompt = `As an experienced software developer, please suggest a possible solution for the following bug:\n\n`;
-    prompt += `Bug Description: ${description}\n\n`;
-    
-    if (stepsToReproduce) {
-      prompt += `Steps to Reproduce:\n${stepsToReproduce}\n\n`;
+  // Extract keywords from the description to match against common solutions
+  const keywords = description.toLowerCase().split(/\s+/);
+  
+  // Define common solutions based on keywords
+  const solutions = [
+    {
+      keywords: ["undefined", "null", "reference", "not defined"],
+      solution: "Check variable initialization and scope. Make sure all variables are properly defined before use and that you're not trying to access properties of null or undefined objects."
+    },
+    {
+      keywords: ["syntax", "unexpected", "token"],
+      solution: "Look for syntax errors such as missing brackets, semicolons, or quotation marks. Check for typos in variable or function names."
+    },
+    {
+      keywords: ["async", "promise", "then", "await"],
+      solution: "Ensure your promises are being properly handled with .then() or await. Check that async functions are properly awaited and that you're not mixing promise chaining with async/await syntax."
+    },
+    {
+      keywords: ["render", "component", "react", "props", "state"],
+      solution: "Verify your component lifecycle and state management. Check that you're not updating state during render and that your dependencies array in useEffect is correct."
+    },
+    {
+      keywords: ["api", "fetch", "request", "response", "server"],
+      solution: "Check your API endpoint URL and request format. Ensure you're handling responses correctly and that you have proper error handling for network failures."
     }
+  ];
+  
+  // Find the solution with the most keyword matches
+  let bestMatch = {
+    solution: "Try debugging step by step and isolating the problematic code. Add console.log statements to track the flow and values of variables throughout your code execution.",
+    matches: 0
+  };
+  
+  for (const solution of solutions) {
+    const matches = solution.keywords.filter(keyword => 
+      keywords.some(word => word.includes(keyword))
+    ).length;
     
-    prompt += `Please provide a clear and concise solution that addresses the root cause of this issue. Include code examples if relevant.`;
-
-    const response = await openai.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert software developer specialized in identifying and fixing bugs. Provide practical, accurate solutions focused on code fixes rather than general advice."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 800
-    });
-
-    return response.choices[0].message.content || "I couldn't generate a solution. Please provide more information about the bug.";
-  } catch (error) {
-    console.error("AI service error:", error);
-    throw new Error("Failed to generate AI solution suggestion");
+    if (matches > bestMatch.matches) {
+      bestMatch = {
+        solution: solution.solution,
+        matches
+      };
+    }
   }
+  
+  return bestMatch.solution;
 }
 
 /**
- * Analyzes and summarizes a bug description to extract key information
+ * Analyzes and summarizes a bug description
  * 
  * @param description The bug description to analyze
- * @returns A structured analysis with key points and potential root causes
+ * @returns A structured analysis as a JSON string
  */
 export async function analyzeBugDescription(description: string): Promise<string> {
-  try {
-    const response = await openai.chat.completions.create({
-      model: MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert at analyzing software bugs. Extract the key information from bug descriptions and identify potential root causes."
-        },
-        {
-          role: "user",
-          content: `Please analyze this bug description and extract the key information, potential causes, and any important technical details:\n\n${description}`
-        }
-      ],
-      temperature: 0.5,
-      max_tokens: 500,
-      response_format: { type: "json_object" }
-    });
+  // Extract a simple summary from the description
+  const summary = description.length > 150 
+    ? description.substring(0, 147) + '...' 
+    : description;
+  
+  // Extract potential technical terms
+  const technicalTerms = extractTechnicalTerms(description);
+  
+  // Create a simple structured response
+  const analysis = {
+    summary: summary,
+    potentialCauses: [
+      "Possible input validation issue",
+      "Potential race condition",
+      "Possible resource management problem"
+    ],
+    technicalDetails: technicalTerms.length > 0 ? technicalTerms : ["No specific technical details identified"]
+  };
+  
+  return JSON.stringify(analysis, null, 2);
+}
 
-    return response.choices[0].message.content || "Unable to analyze the bug description.";
-  } catch (error) {
-    console.error("AI analysis error:", error);
-    throw new Error("Failed to analyze bug description");
-  }
+// Helper function to extract common technical terms
+function extractTechnicalTerms(text: string): string[] {
+  const techTerms = [
+    "API", "HTTP", "REST", "GraphQL", "JWT", "OAuth", 
+    "React", "Vue", "Angular", "DOM", "CSS", "HTML",
+    "Node.js", "Express", "MongoDB", "SQL", "PostgreSQL",
+    "Docker", "Kubernetes", "CI/CD", "Git",
+    "async", "await", "Promise", "callback", "thread",
+    "null pointer", "memory leak", "stack overflow", "race condition"
+  ];
+  
+  return techTerms.filter(term => 
+    text.toLowerCase().includes(term.toLowerCase())
+  );
 }
