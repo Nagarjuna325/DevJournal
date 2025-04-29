@@ -12,14 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Extended schema with validation
-const authSchema = insertUserSchema.extend({
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters.",
-  }),
+// Login schema
+const loginSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
 });
 
-type FormData = z.infer<typeof authSchema>;
+// Registration schema with password confirmation
+const registerSchema = insertUserSchema.extend({
+  email: z.string().email("Please enter a valid email address."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters."),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"], 
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const [authType, setAuthType] = useState<"login" | "register">("login");
@@ -32,20 +42,36 @@ export default function AuthPage() {
     return null;
   }
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(authSchema),
+  // Login form setup
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
     },
   });
 
-  const onSubmit = (data: FormData) => {
-    if (authType === "login") {
-      loginMutation.mutate(data);
-    } else {
-      registerMutation.mutate(data);
-    }
+  // Register form setup
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  // Handle login submission
+  const onLoginSubmit = (data: LoginFormData) => {
+    loginMutation.mutate(data);
+  };
+
+  // Handle registration submission
+  const onRegisterSubmit = (data: RegisterFormData) => {
+    // Remove the confirmPassword field before sending to the API
+    const { confirmPassword, ...registrationData } = data;
+    registerMutation.mutate(registrationData);
   };
 
   const isLoading = loginMutation.isPending || registerMutation.isPending;
@@ -88,8 +114,8 @@ export default function AuthPage() {
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-lg font-medium">AI-Powered Solutions</h3>
-                    <p className="text-primary-200">Get smart suggestions for solving your issues</p>
+                    <h3 className="text-lg font-medium">Smart Solutions</h3>
+                    <p className="text-primary-200">Get intelligent suggestions for solving your issues</p>
                   </div>
                 </div>
                 
@@ -129,11 +155,11 @@ export default function AuthPage() {
                     Log in to access your bug journal
                   </CardDescription>
                 </CardHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <Form {...loginForm}>
+                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <CardContent className="space-y-4">
                       <FormField
-                        control={form.control}
+                        control={loginForm.control}
                         name="username"
                         render={({ field }) => (
                           <FormItem>
@@ -146,7 +172,7 @@ export default function AuthPage() {
                         )}
                       />
                       <FormField
-                        control={form.control}
+                        control={loginForm.control}
                         name="password"
                         render={({ field }) => (
                           <FormItem>
@@ -181,11 +207,11 @@ export default function AuthPage() {
                     Register to start tracking your development challenges
                   </CardDescription>
                 </CardHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <Form {...registerForm}>
+                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                     <CardContent className="space-y-4">
                       <FormField
-                        control={form.control}
+                        control={registerForm.control}
                         name="username"
                         render={({ field }) => (
                           <FormItem>
@@ -198,13 +224,39 @@ export default function AuthPage() {
                         )}
                       />
                       <FormField
-                        control={form.control}
+                        control={registerForm.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" placeholder="Enter your email address" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
                         name="password"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Password</FormLabel>
                             <FormControl>
                               <Input type="password" placeholder="Create a password (min. 6 characters)" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confirm Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Confirm your password" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
