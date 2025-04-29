@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [stepsToReproduce, setStepsToReproduce] = useState("");
   const [solution, setSolution] = useState("");
   const [tagInput, setTagInput] = useState("");
+  const [isArchivesOpen, setIsArchivesOpen] = useState(true);
+  const [isTagsOpen, setIsTagsOpen] = useState(true);
   const [tags, setTags] = useState<{id: number, name: string, color: string}[]>([
     { id: 1, name: "React", color: "#61dafb" },
     { id: 2, name: "Frontend", color: "#f56565" },
@@ -60,6 +62,10 @@ export default function Dashboard() {
   const [currentViewMonth, setCurrentViewMonth] = useState<Date>(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   // Mock data for issues
   const [issues, setIssues] = useState([
@@ -276,87 +282,125 @@ export default function Dashboard() {
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className={`${isSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-64'} transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-800 p-4 border-r border-gray-200 dark:border-gray-700`}>
-          <nav className="space-y-8">
+        <aside className={`${isSidebarCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-hidden`}>
+          <nav className={`${isSidebarCollapsed ? 'p-2' : 'p-4'} space-y-6`}>
             <div>
-              <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                NAVIGATION
-              </h3>
+              {!isSidebarCollapsed && (
+                <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                  NAVIGATION
+                </h3>
+              )}
               <ul className="space-y-1">
                 <li>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Home className="mr-2 h-4 w-4" />
-                    Dashboard
+                  <Button 
+                    variant="ghost" 
+                    className={`w-full justify-${isSidebarCollapsed ? 'center' : 'start'}`}
+                    title="Dashboard"
+                  >
+                    <Home className={`${isSidebarCollapsed ? '' : 'mr-2'} h-5 w-5`} />
+                    {!isSidebarCollapsed && "Dashboard"}
                   </Button>
                 </li>
               </ul>
             </div>
             
             <div>
-              <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center justify-between">
-                ARCHIVES
-                <ChevronDown className="h-4 w-4" />
-              </h3>
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <ChevronLeft 
-                    className="h-4 w-4 cursor-pointer" 
-                    onClick={handlePreviousMonth}
-                  />
-                  <span className="font-medium">{format(currentViewMonth, "MMMM yyyy")}</span>
-                  <ChevronRight 
-                    className="h-4 w-4 cursor-pointer" 
-                    onClick={handleNextMonth}
-                  />
+              {!isSidebarCollapsed && (
+                <h3 
+                  className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsArchivesOpen(!isArchivesOpen)}
+                >
+                  ARCHIVES
+                  <ChevronDown className={`h-4 w-4 transform transition-transform ${isArchivesOpen ? '' : '-rotate-90'}`} />
+                </h3>
+              )}
+              {isSidebarCollapsed ? (
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-center"
+                  title="Archives"
+                  onClick={() => setIsArchivesOpen(!isArchivesOpen)}
+                >
+                  <Archive className="h-5 w-5" />
+                </Button>
+              ) : isArchivesOpen && (
+                <div className="mt-4 pl-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <ChevronLeft 
+                      className="h-4 w-4 cursor-pointer" 
+                      onClick={handlePreviousMonth}
+                    />
+                    <span className="font-medium">{format(currentViewMonth, "MMMM yyyy")}</span>
+                    <ChevronRight 
+                      className="h-4 w-4 cursor-pointer" 
+                      onClick={handleNextMonth}
+                    />
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-xs">
+                    <div className="text-center font-medium">Su</div>
+                    <div className="text-center font-medium">Mo</div>
+                    <div className="text-center font-medium">Tu</div>
+                    <div className="text-center font-medium">We</div>
+                    <div className="text-center font-medium">Th</div>
+                    <div className="text-center font-medium">Fr</div>
+                    <div className="text-center font-medium">Sa</div>
+                    
+                    {/* Dynamic calendar days */}
+                    {generateCalendarDays().map((day, index) => (
+                      <div 
+                        key={index} 
+                        className={`
+                          text-center p-1 cursor-pointer
+                          ${!day.isCurrentMonth ? 'text-gray-400' : ''}
+                          ${day.isCurrentMonth && format(day.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') 
+                            ? 'rounded-full bg-primary text-white' 
+                            : ''
+                          }
+                          ${day.hasIssues && day.isCurrentMonth ? 'font-bold' : ''}
+                          hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full
+                        `}
+                        onClick={() => handleSelectDay(day.day, day.date)}
+                      >
+                        {day.day}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-7 gap-1 text-xs">
-                  <div className="text-center font-medium">Su</div>
-                  <div className="text-center font-medium">Mo</div>
-                  <div className="text-center font-medium">Tu</div>
-                  <div className="text-center font-medium">We</div>
-                  <div className="text-center font-medium">Th</div>
-                  <div className="text-center font-medium">Fr</div>
-                  <div className="text-center font-medium">Sa</div>
-                  
-                  {/* Dynamic calendar days */}
-                  {generateCalendarDays().map((day, index) => (
-                    <div 
-                      key={index} 
-                      className={`
-                        text-center p-1 cursor-pointer
-                        ${!day.isCurrentMonth ? 'text-gray-400' : ''}
-                        ${day.isCurrentMonth && format(day.date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd') 
-                          ? 'rounded-full bg-primary text-white' 
-                          : ''
-                        }
-                        ${day.hasIssues && day.isCurrentMonth ? 'font-bold' : ''}
-                        hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full
-                      `}
-                      onClick={() => handleSelectDay(day.day, day.date)}
-                    >
-                      {day.day}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
             
             <div>
-              <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center justify-between">
-                TAGS
-                <Tag className="h-4 w-4" />
-              </h3>
-              <div className="flex flex-wrap gap-2 mt-4">
-                {tags.map(tag => (
-                  <Badge 
-                    key={tag.id} 
-                    style={{ backgroundColor: tag.color }}
-                    className="cursor-pointer"
-                  >
-                    {tag.name}
-                  </Badge>
-                ))}
-              </div>
+              {!isSidebarCollapsed && (
+                <h3 
+                  className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2 flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsTagsOpen(!isTagsOpen)}
+                >
+                  TAGS
+                  <ChevronDown className={`h-4 w-4 transform transition-transform ${isTagsOpen ? '' : '-rotate-90'}`} />
+                </h3>
+              )}
+              {isSidebarCollapsed ? (
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-center"
+                  title="Tags"
+                  onClick={() => setIsTagsOpen(!isTagsOpen)}
+                >
+                  <Tag className="h-5 w-5" />
+                </Button>
+              ) : isTagsOpen && (
+                <div className="flex flex-wrap gap-2 mt-4 pl-2">
+                  {tags.map(tag => (
+                    <Badge 
+                      key={tag.id} 
+                      style={{ backgroundColor: tag.color }}
+                      className="cursor-pointer"
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </nav>
         </aside>
@@ -624,11 +668,98 @@ export default function Dashboard() {
                   <User className="h-4 w-4 mr-2" />
                   Update Profile
                 </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full justify-start" 
+                  onClick={() => {
+                    setIsSettingsDialogOpen(false);
+                    setIsChangePasswordDialogOpen(true);
+                  }}
+                >
                   <Settings className="h-4 w-4 mr-2" />
                   Change Password
                 </Button>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Change Password Dialog */}
+      <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Update your account password
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="old-password">Current Password</Label>
+              <Input 
+                id="old-password" 
+                type="password" 
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="Enter your current password"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input 
+                id="new-password" 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+              <Input 
+                id="confirm-new-password" 
+                type="password" 
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Confirm new password"
+              />
+              {newPassword && confirmNewPassword && newPassword !== confirmNewPassword && (
+                <p className="text-red-500 text-sm mt-1">Passwords do not match</p>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsChangePasswordDialogOpen(false);
+                  setOldPassword("");
+                  setNewPassword("");
+                  setConfirmNewPassword("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  // Here you would handle the password change logic
+                  // For now, we'll just show an alert
+                  if (newPassword === confirmNewPassword) {
+                    alert("Password changed successfully!");
+                    setIsChangePasswordDialogOpen(false);
+                    setOldPassword("");
+                    setNewPassword("");
+                    setConfirmNewPassword("");
+                  }
+                }}
+                disabled={!oldPassword || !newPassword || !confirmNewPassword || newPassword !== confirmNewPassword}
+              >
+                Update Password
+              </Button>
             </div>
           </div>
         </DialogContent>
