@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,10 @@ import {
   User,
   LogOut,
   Moon,
-  Sun
+  Sun,
+  Trash2,
+  Upload,
+  Paperclip
 } from "lucide-react";
 import { format, addDays, subDays, addMonths, subMonths, getMonth, getYear, startOfMonth, getDay, getDaysInMonth } from "date-fns";
 import { 
@@ -36,6 +39,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { requestAiSuggestions } from "@/lib/ai-service";
 
 export default function Dashboard() {
@@ -59,23 +72,49 @@ export default function Dashboard() {
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [links, setLinks] = useState<{title: string, url: string}[]>([]);
+  const [fileAttachments, setFileAttachments] = useState<File[]>([]);
   const [currentViewMonth, setCurrentViewMonth] = useState<Date>(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [issueToDelete, setIssueToDelete] = useState<number | null>(null);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState<number | null>(null);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
+  // Define the issue type
+  type Issue = {
+    id: number;
+    title: string;
+    description: string;
+    stepsToReproduce?: string;
+    solution?: string;
+    date: Date;
+    status: string;
+    tags: number[];
+    links?: {title: string, url: string}[];
+    files?: {name: string, size: number, type: string, url: string}[];
+  };
+
   // Mock data for issues
-  const [issues, setIssues] = useState([
+  const [issues, setIssues] = useState<Issue[]>([
     {
       id: 1,
-      title: "Reacted",
-      description: "Changing the Frontend bug.",
+      title: "React State Management Issue",
+      description: "Components not re-rendering when state changes in nested objects.",
+      stepsToReproduce: "1. Create nested state object\n2. Modify a property\n3. Observe component doesn't update",
+      solution: "Use the spread operator to create a new object reference when updating state.",
       date: new Date(2025, 3, 8),
       status: "resolved",
-      tags: [1, 2]
+      tags: [1, 2],
+      links: [
+        { title: "React State Docs", url: "https://reactjs.org/docs/state-and-lifecycle.html" }
+      ],
+      files: [
+        { name: "bug-example.js", size: 2048, type: "text/javascript", url: "#" }
+      ]
     }
   ]);
 
@@ -151,14 +190,28 @@ export default function Dashboard() {
   // Form handling functions
   const handleNewIssue = () => {
     const newIssue = {
-      id: issues.length + 1,
+      id: Date.now(), // Using timestamp for unique ID
       title: issueTitle,
       description: issueDescription,
+      stepsToReproduce: stepsToReproduce,
+      solution: solution,
       date: selectedDate,
       status: "unresolved",
-      tags: selectedTags
+      tags: selectedTags,
+      links: links,
+      files: fileAttachments.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        // In a real app, you'd upload the file to a server and store the URL
+        url: URL.createObjectURL(file)
+      }))
     };
     
+    // Save to database
+    saveIssueToDatabase(newIssue);
+    
+    // Add to local state
     setIssues([...issues, newIssue]);
     setIsNewIssueDialogOpen(false);
     
@@ -172,6 +225,39 @@ export default function Dashboard() {
     setLinkUrl("");
     setSelectedTags([]);
     setLinks([]);
+    setFileAttachments([]);
+  };
+
+  // This would be connected to your backend in a real app
+  const saveIssueToDatabase = (issue: any) => {
+    console.log("Saving issue to database:", issue);
+    // In a real app, you would make an API call to save the issue
+    // Example: apiRequest('POST', '/api/issues', issue);
+  };
+
+  const handleDeleteIssue = (id: number) => {
+    setIssueToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteIssue = () => {
+    if (issueToDelete !== null) {
+      // Delete from database
+      // Example: apiRequest('DELETE', `/api/issues/${issueToDelete}`);
+      
+      // Delete from local state
+      setIssues(issues.filter(issue => issue.id !== issueToDelete));
+      setIsDeleteDialogOpen(false);
+      setIssueToDelete(null);
+    }
+  };
+
+  const handleToggleIssueDetails = (id: number) => {
+    if (isDetailViewOpen === id) {
+      setIsDetailViewOpen(null);
+    } else {
+      setIsDetailViewOpen(id);
+    }
   };
 
   const handleAddTag = () => {
@@ -206,6 +292,19 @@ export default function Dashboard() {
     const newLinks = [...links];
     newLinks.splice(index, 1);
     setLinks(newLinks);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setFileAttachments(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    const newFiles = [...fileAttachments];
+    newFiles.splice(index, 1);
+    setFileAttachments(newFiles);
   };
 
   const handleSelectDay = (day: number, date: Date) => {
@@ -555,11 +654,55 @@ export default function Dashboard() {
                         </div>
                       </div>
                       
+                      <div className="space-y-2">
+                        <Label>File Attachments</Label>
+                        {fileAttachments.length > 0 && (
+                          <div className="space-y-2 mb-2">
+                            {fileAttachments.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                                <div className="flex items-center">
+                                  <Paperclip className="h-4 w-4 mr-2 text-gray-500" />
+                                  <div>
+                                    <p className="text-sm font-medium truncate max-w-xs">{file.name}</p>
+                                    <span className="text-xs text-gray-500">{Math.round(file.size / 1024)} KB</span>
+                                  </div>
+                                </div>
+                                <Button size="sm" variant="ghost" onClick={() => handleRemoveFile(index)}>×</Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="file"
+                            id="file-upload"
+                            className="hidden"
+                            onChange={handleFileChange}
+                            multiple
+                          />
+                          <Label 
+                            htmlFor="file-upload" 
+                            className="cursor-pointer bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 px-4 py-2 rounded text-sm flex items-center"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Add File Attachment
+                          </Label>
+                          <span className="text-xs text-gray-500">
+                            PDF, Word, Excel, Images, etc.
+                          </span>
+                        </div>
+                      </div>
+                      
                       <div className="flex justify-end space-x-2 pt-4">
                         <DialogClose asChild>
                           <Button variant="outline">Cancel</Button>
                         </DialogClose>
-                        <Button onClick={handleNewIssue}>Save Issue</Button>
+                        <Button 
+                          onClick={handleNewIssue}
+                          disabled={!issueTitle.trim() || !issueDescription.trim()}
+                        >
+                          Save Issue
+                        </Button>
                       </div>
                     </div>
                   </DialogContent>
@@ -582,6 +725,16 @@ export default function Dashboard() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+            
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">Issues for {format(selectedDate, "MMMM d, yyyy")}</h3>
+              <Button 
+                onClick={() => setIsNewIssueDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Issue
+              </Button>
             </div>
             
             <div className="space-y-4">
@@ -609,13 +762,102 @@ export default function Dashboard() {
                           })}
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteIssue(issue.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleToggleIssueDetails(issue.id)}
+                        >
+                          <ChevronDown className={`h-4 w-4 transform transition-transform ${isDetailViewOpen === issue.id ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </div>
                     </CardHeader>
-                    <CardContent className="p-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-300">{issue.description}</p>
+                    <CardContent className={`p-4 ${isDetailViewOpen === issue.id ? '' : 'max-h-20 overflow-hidden'}`}>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-sm font-medium mb-1">Description</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{issue.description}</p>
+                        </div>
+                        
+                        {isDetailViewOpen === issue.id && (
+                          <>
+                            {issue.stepsToReproduce && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Steps to Reproduce</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{issue.stepsToReproduce}</p>
+                              </div>
+                            )}
+                            
+                            {issue.solution && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Solution</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{issue.solution}</p>
+                              </div>
+                            )}
+                            
+                            {issue.links && issue.links.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Related Links</h4>
+                                <ul className="space-y-1">
+                                  {issue.links.map((link, index) => (
+                                    <li key={index}>
+                                      <a 
+                                        href={link.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                      >
+                                        {link.title}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {issue.files && issue.files.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-medium mb-1">Attachments</h4>
+                                <ul className="space-y-1">
+                                  {issue.files.map((file, index) => (
+                                    <li key={index} className="flex items-center space-x-2">
+                                      <Paperclip className="h-4 w-4 text-gray-400" />
+                                      <a 
+                                        href={file.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                                      >
+                                        {file.name}
+                                      </a>
+                                      <span className="text-xs text-gray-500">({Math.round(file.size / 1024)} KB)</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </CardContent>
+                    {isDetailViewOpen !== issue.id && (
+                      <CardFooter className="p-2 bg-gray-50 dark:bg-gray-700 flex justify-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleToggleIssueDetails(issue.id)}
+                        >
+                          Show More
+                        </Button>
+                      </CardFooter>
+                    )}
                   </Card>
                 ))}
               
@@ -764,6 +1006,34 @@ export default function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this issue? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setIssueToDelete(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteIssue}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
