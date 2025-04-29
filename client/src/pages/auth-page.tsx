@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,11 +36,12 @@ export default function AuthPage() {
   const { loginMutation, registerMutation, user } = useAuth();
   const [, navigate] = useLocation();
   
-  // If already logged in, redirect to dashboard
-  if (user) {
-    navigate("/");
-    return null;
-  }
+  // Use effect for redirection to avoid React hooks rule violation
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   // Login form setup
   const loginForm = useForm<LoginFormData>({
