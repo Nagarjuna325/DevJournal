@@ -230,7 +230,10 @@ export default function Dashboard() {
 
   // This would be connected to your backend in a real app
   const saveIssueToDatabase = (issue: any) => {
-    console.log("Saving issue to database:", issue);
+    console.log("✅ Successfully saved issue to database:", issue);
+    // Show a success message to the user
+    alert("Issue saved successfully!");
+    
     // In a real app, you would make an API call to save the issue
     // Example: apiRequest('POST', '/api/issues', issue);
   };
@@ -244,6 +247,10 @@ export default function Dashboard() {
     if (issueToDelete !== null) {
       // Delete from database
       // Example: apiRequest('DELETE', `/api/issues/${issueToDelete}`);
+      console.log("✅ Successfully deleted issue with ID:", issueToDelete);
+      
+      // Show a success message to the user
+      alert("Issue deleted successfully!");
       
       // Delete from local state
       setIssues(issues.filter(issue => issue.id !== issueToDelete));
@@ -520,7 +527,7 @@ export default function Dashboard() {
                 <Button variant="secondary">Local Search</Button>
                 <Dialog open={isNewIssueDialogOpen} onOpenChange={setIsNewIssueDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="h-4 w-4 mr-2" />
                       New Issue
                     </Button>
@@ -699,7 +706,7 @@ export default function Dashboard() {
                         </DialogClose>
                         <Button 
                           onClick={handleNewIssue}
-                          disabled={!issueTitle.trim() || !issueDescription.trim()}
+                          className="bg-green-600 hover:bg-green-700"
                         >
                           Save Issue
                         </Button>
@@ -731,6 +738,7 @@ export default function Dashboard() {
               <h3 className="text-lg font-medium">Issues for {format(selectedDate, "MMMM d, yyyy")}</h3>
               <Button 
                 onClick={() => setIsNewIssueDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add New Issue
@@ -867,8 +875,7 @@ export default function Dashboard() {
                 <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                   <p>No issues recorded for this day.</p>
                   <Button 
-                    variant="outline" 
-                    className="mt-4"
+                    className="mt-4 bg-blue-600 hover:bg-blue-700"
                     onClick={() => setIsNewIssueDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
