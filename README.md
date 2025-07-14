@@ -19,8 +19,8 @@ AI Integration: OpenAI (for suggestions)
 Getting Started
 1. Clone the repository
    
- git clone https://github.com/<your-username>/<repo-name>.git
- cd <repo-name>
+  git clone https://github.com/<your-username>/<repo-name>.git
+  cd <repo-name>
 3. Install dependencies
       npm install
 4. Set up environment variables
