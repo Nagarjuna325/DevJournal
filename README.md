@@ -17,6 +17,7 @@ Authentication: Passport.js
 File Uploads: Multer (files stored in DB, not on disk)
 AI Integration: OpenAI (for suggestions)
 Getting Started
+\'\'\'
 1. Clone the repository
    
 git clone https://github.com/<your-username>/<repo-name>.git
