@@ -18,11 +18,12 @@ File Uploads: Multer (files stored in DB, not on disk)
 AI Integration: OpenAI (for suggestions)
 Getting Started
 1. Clone the repository
-     git clone https://github.com/<your-username>/<repo-name>.git
-     cd <repo-name>
-2. Install dependencies
+   
+ git clone https://github.com/<your-username>/<repo-name>.git
+ cd <repo-name>
+3. Install dependencies
       npm install
-3. Set up environment variables
+4. Set up environment variables
        
 Create a .env file in the root directory:
        DATABASE_URL=your-neon-db-connection-string
