@@ -80,6 +80,8 @@ export default function NewIssueForm({
     resolver: zodResolver(formSchema),
     defaultValues,
   });
+
+  //console.log("formState.errors", form.formState.errors);
   
   // Fetch tags
   const { data: allTags } = useQuery({
@@ -125,6 +127,7 @@ export default function NewIssueForm({
   });
   
   const onSubmit = (data: FormData) => {
+    console.log("Submitting form data:", data);  // ✅ Check if this prints
     issueMutation.mutate(data);
   };
   
@@ -264,8 +267,10 @@ export default function NewIssueForm({
                 <FormControl>
                   <div className="relative">
                     <Input 
-                      value={field.value} 
-                      onChange={field.onChange}
+                      // value={field.value} 
+                      // onChange={field.onChange}
+                      {...field} 
+                      type="date"
                       className="pl-3 pr-10"
                     />
                     <CalendarIcon className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />

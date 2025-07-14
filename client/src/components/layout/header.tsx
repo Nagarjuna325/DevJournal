@@ -30,7 +30,7 @@ export default function Header({ onToggleSidebar, onNewIssue }: HeaderProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Search functionality will be implemented later
-    console.log("Searching for:", searchQuery);
+    //console.log("Searching for:", searchQuery);
   };
 
   const toggleTheme = () => {

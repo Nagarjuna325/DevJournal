@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { apiRequest } from "@/lib/api";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -98,25 +99,19 @@ export default function Dashboard() {
     files?: {name: string, size: number, type: string, url: string}[];
   };
 
-  // Mock data for issues
-  const [issues, setIssues] = useState<Issue[]>([
-    {
-      id: 1,
-      title: "React State Management Issue",
-      description: "Components not re-rendering when state changes in nested objects.",
-      stepsToReproduce: "1. Create nested state object\n2. Modify a property\n3. Observe component doesn't update",
-      solution: "Use the spread operator to create a new object reference when updating state.",
-      date: new Date(2025, 3, 8),
-      status: "resolved",
-      tags: [1, 2],
-      links: [
-        { title: "React State Docs", url: "https://reactjs.org/docs/state-and-lifecycle.html" }
-      ],
-      files: [
-        { name: "bug-example.js", size: 2048, type: "text/javascript", url: "#" }
-      ]
+const [issues, setIssues] = useState<Issue[]>([]);
+
+useEffect(() => {
+  async function fetchIssues() {
+    try {
+      const data = await apiRequest<Issue[]>('GET', '/api/issues');
+      setIssues(data);
+    } catch (err) {
+      console.error("Failed to fetch issues:", err);
     }
-  ]);
+  }
+  fetchIssues();
+}, []);
 
   // Toggle dark/light mode
   useEffect(() => {
@@ -189,9 +184,34 @@ export default function Dashboard() {
 
   // State to track which issue is being edited
   const [issueToEdit, setIssueToEdit] = useState<number | null>(null);
+
   
   // Form handling functions
-  const handleNewIssue = () => {
+  const handleNewIssue = async() => {
+    //console.log("handleNewIssue called");
+    
+    const uploadFile = async (file: File) => {
+       const formData = new FormData();
+       formData.append("file", file);
+       const res = await fetch("/api/upload", {
+       method: "POST",
+       body: formData,
+      credentials: "include"
+     });
+    if (!res.ok) throw new Error("Upload failed");
+    return await res.json(); // { url, name, size, type }
+  };
+   //console.log("Uploading files...");
+  let uploadedFiles = [];
+  try {
+    uploadedFiles = await Promise.all(fileAttachments.map(uploadFile));
+    //console.log("Files uploaded:", uploadedFiles);
+  } catch (err) {
+    console.error("File upload error:", err);
+    alert("File upload failed: " + err);
+    return;
+  }
+   
     const newIssue = {
       id: Date.now(), // Using timestamp for unique ID
       title: issueTitle,
@@ -202,13 +222,7 @@ export default function Dashboard() {
       status: "unresolved",
       tags: selectedTags,
       links: links,
-      files: fileAttachments.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        // In a real app, you'd upload the file to a server and store the URL
-        url: URL.createObjectURL(file)
-      }))
+      files: uploadedFiles
     };
     
     if (issueToEdit !== null) {
@@ -217,14 +231,15 @@ export default function Dashboard() {
         issue.id === issueToEdit ? { ...newIssue, id: issueToEdit } : issue
       );
       setIssues(updatedIssues);
-      console.log("✅ Successfully updated issue:", { ...newIssue, id: issueToEdit });
+     
       alert("Issue updated successfully!");
     } else {
+      // console.log(newIssue);
       // Save new issue to database
       saveIssueToDatabase(newIssue);
       
       // Add to local state
-      setIssues([...issues, newIssue]);
+      // setIssues([...issues, newIssue]);
     }
     
     setIsNewIssueDialogOpen(false);
@@ -267,36 +282,35 @@ export default function Dashboard() {
     }
   };
 
-  // This would be connected to your backend in a real app
-  const saveIssueToDatabase = (issue: any) => {
-    console.log("✅ Successfully saved issue to database:", issue);
-    // Show a success message to the user
+
+  const saveIssueToDatabase = async (issue: any) => {
+  try {
+    const saved = await apiRequest<Issue>('POST', '/api/issues', issue);
+    setIssues(prev => [...prev, saved]);
     alert("Issue saved successfully!");
-    
-    // In a real app, you would make an API call to save the issue
-    // Example: apiRequest('POST', '/api/issues', issue);
-  };
+  } catch (err) {
+    alert("Failed to save issue: " + err);
+  }
+};
 
   const handleDeleteIssue = (id: number) => {
     setIssueToDelete(id);
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDeleteIssue = () => {
-    if (issueToDelete !== null) {
-      // Delete from database
-      // Example: apiRequest('DELETE', `/api/issues/${issueToDelete}`);
-      console.log("✅ Successfully deleted issue with ID:", issueToDelete);
-      
-      // Show a success message to the user
+  const confirmDeleteIssue = async () => {
+  if (issueToDelete !== null) {
+    try {
+      await apiRequest('DELETE', `/api/issues/${issueToDelete}`);
+      setIssues(prev => prev.filter(issue => issue.id !== Number(issueToDelete)));
       alert("Issue deleted successfully!");
-      
-      // Delete from local state
-      setIssues(issues.filter(issue => issue.id !== issueToDelete));
-      setIsDeleteDialogOpen(false);
-      setIssueToDelete(null);
+    } catch (err) {
+      alert("Failed to delete issue: " + err);
     }
-  };
+    setIsDeleteDialogOpen(false);
+    setIssueToDelete(null);
+  }
+};
 
   const handleToggleIssueDetails = (id: number) => {
     if (isDetailViewOpen === id) {
@@ -882,7 +896,6 @@ export default function Dashboard() {
                                 </ul>
                               </div>
                             )}
-                            
                             {issue.files && issue.files.length > 0 && (
                               <div>
                                 <h4 className="text-sm font-medium mb-1">Attachments</h4>
@@ -908,7 +921,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </CardContent>
-                    {isDetailViewOpen !== issue.id && (
+                    {isDetailViewOpen === issue.id && (
                       <CardFooter className="p-2 bg-gray-50 dark:bg-gray-700 flex justify-center">
                         <Button 
                           variant="ghost" 

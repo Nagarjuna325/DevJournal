@@ -120,21 +120,22 @@ export function IssueCard({ issue, isCompact = false, onEdit, onClick }: IssueCa
             </div>
           </div>
           
-          {issue.links.length > 0 && (
+          {issue.files && issue.links.length > 0 && (
             <div className="mt-3">
               <h4 className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold mb-1">Links</h4>
               <div className="space-y-1">
-                {issue.links.map((link) => (
-                  <a 
-                    key={link.id}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline flex items-center"
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    {link.title}
-                  </a>
+                {issue.files.map((file: { id: string; name: string }) => (
+                  <li key={file.id}>
+                    <a 
+                      href={`/api/files/${file.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline flex items-center"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      {file.name}
+                    </a>
+                  </li>
                 ))}
               </div>
             </div>

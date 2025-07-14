@@ -4,6 +4,7 @@ import {
   tags, 
   issueTags, 
   issueLinks,
+  issueFiles,
   type User, 
   type InsertUser,
   type Issue,
@@ -86,32 +87,64 @@ export class DatabaseStorage implements IStorage {
   
   // Issue methods
   async getIssue(id: number): Promise<Issue | undefined> {
-    const [issue] = await db.select().from(issues).where(eq(issues.id, id));
-    return issue;
+  const [issue] = await db.select().from(issues).where(eq(issues.id, id));
+  if (issue) {
+    (issue as any).files = await db.select().from(issueFiles).where(eq(issueFiles.issueId, issue.id));
   }
+  return issue;
+}
   
-  async getIssuesByUser(userId: number): Promise<Issue[]> {
-    return db.select().from(issues)
-      .where(eq(issues.userId, userId))
-      .orderBy(desc(issues.date), desc(issues.createdAt));
+ async getIssuesByUser(userId: number): Promise<Issue[]> {
+  const issuesList = await db.select().from(issues)
+    .where(eq(issues.userId, userId))
+    .orderBy(desc(issues.date), desc(issues.createdAt));
+  for (const issue of issuesList) {
+    (issue as any).files = await db.select().from(issueFiles).where(eq(issueFiles.issueId, issue.id));
   }
+  return issuesList as any;
+}
   
   async getIssuesByUserAndDate(userId: number, date: Date): Promise<Issue[]> {
     // Format the date as YYYY-MM-DD string for comparison
     const formattedDate = date.toISOString().split('T')[0];
     
-    return db.select().from(issues)
-      .where(and(
-        eq(issues.userId, userId),
-        eq(issues.date, formattedDate)
-      ))
-      .orderBy(desc(issues.createdAt));
+    // return db.select().from(issues)
+    //   .where(and(
+    //     eq(issues.userId, userId),
+    //     eq(issues.date, formattedDate)
+    //   ))
+    //   .orderBy(desc(issues.createdAt));
+    const issuesList = await db.select().from(issues)
+    .where(and(
+      eq(issues.userId, userId),
+      eq(issues.date, formattedDate)
+    ))
+    .orderBy(desc(issues.createdAt));
+  for (const issue of issuesList) {
+    (issue as any).files = await db.select().from(issueFiles).where(eq(issueFiles.issueId, issue.id));
+  }
+  return issuesList as any;
   }
   
-  async createIssue(issue: InsertIssue): Promise<Issue> {
-    const [newIssue] = await db.insert(issues).values(issue).returning();
-    return newIssue;
+  async createIssue(issue: InsertIssue, files?: any[]): Promise<Issue> {
+  const [newIssue] = await db.insert(issues).values(issue).returning();
+  if (files && files.length > 0) {
+    for (const file of files) {
+      //await db.insert(issueFiles).values({
+        // issueId: newIssue.id,
+        // url: file.url,
+        // name: file.name,
+        // size: file.size,
+        // type: file.type,
+        // data: file.data
+        // Update the file's issueId instead of inserting a new row
+      await db.update(issueFiles)
+        .set({ issueId: newIssue.id })
+        .where(eq(issueFiles.id, file.id));
+    }
   }
+  return { ...newIssue, files } as any;
+}
   
   async updateIssue(id: number, issueData: Partial<InsertIssue>): Promise<Issue | undefined> {
     const [updatedIssue] = await db.update(issues)

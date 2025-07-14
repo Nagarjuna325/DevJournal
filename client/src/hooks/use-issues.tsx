@@ -36,11 +36,13 @@ export function useIssues() {
   // Create a new issue
   const createIssueMutation = useMutation({
     mutationFn: async (newIssue: any) => {
+      //console.log("Creating issue with data:", newIssue);  // Debugging
       const res = await apiRequest("POST", "/api/issues", newIssue);
       return await res.json();
     },
     onSuccess: () => {
       // Invalidate and refetch
+      //console.log("Issue created successfully");
       queryClient.invalidateQueries({
         queryKey: [`/api/issues/date/${formatDateForApi(currentDate)}`],
       });
@@ -50,6 +52,7 @@ export function useIssues() {
       });
     },
     onError: (error: Error) => {
+      //console.log("Error creating issue:", error.message);
       toast({
         title: "Failed to create issue",
         description: error.message,

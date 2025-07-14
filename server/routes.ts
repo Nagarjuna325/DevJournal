@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
@@ -8,8 +9,12 @@ import {
   insertTagSchema, 
   insertIssueTagSchema,
   insertIssueLinkSchema,
-  issueStatusEnum
+  issueStatusEnum,
+   issueFiles 
 } from "@shared/schema";
+import multer from "multer";
+import fs from "fs/promises";
+import { db } from "./db";
 
 // Middleware to ensure the user is authenticated
 const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
@@ -20,8 +25,38 @@ const ensureAuthenticated = (req: Request, res: Response, next: Function) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // ✅ Add this log to see every request that hits your server
+  app.use((req, res, next) => {
+    //console.log(`${req.method} ${req.url}`);
+    next();
+  });
+
+  
   // Setup authentication routes
   setupAuth(app);
+
+  // --- ADD THIS BLOCK BELOW ---
+
+  // Registration route
+  app.post("/api/register", async (req, res, next) => {
+    try {
+      const { username, email, password, name } = req.body;
+      // Basic validation (replace with zod or your preferred validation)
+      if (!username || !email || !password || !name) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+      // TODO: Check if user already exists
+      // TODO: Hash the password before saving (use bcrypt or similar)
+      // TODO: Save the new user to your database
+      const newUser = await storage.createUser({ username, email, password, name});
+      res.status(201).json({ message: "User registered", user: newUser });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- EXISTING ROUTES BELOW ---
   
   // Issues routes
   app.get("/api/issues", ensureAuthenticated, async (req, res, next) => {
@@ -84,8 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId
       });
-      
-      const newIssue = await storage.createIssue(issueData);
+
+      const newIssue = await storage.createIssue(issueData, req.body.files);
       res.status(201).json(newIssue);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -201,39 +236,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/issues/:id/tags", ensureAuthenticated, async (req, res, next) => {
+
+  app.post("/api/issues", ensureAuthenticated, async (req, res, next) => {
     try {
-      const issueId = parseInt(req.params.id);
-      if (isNaN(issueId)) {
-        return res.status(400).json({ message: "Invalid issue ID" });
-      }
+      // Log the incoming request body to debug the issue
+      console.log("🔥 POST /api/issues hit", req.body);  // Logs the body of the request
+      console.log("Request Body:", req.body);  // Logs the request body for further inspection
+  
+      // Ensure the user is authenticated
+      const userId = req.user!.id;
       
-      // Check if issue exists and belongs to user
-      const existingIssue = await storage.getIssue(issueId);
-      if (!existingIssue) {
-        return res.status(404).json({ message: "Issue not found" });
-      }
-      
-      if (existingIssue.userId !== req.user!.id) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
-      // Validate tag association data
-      const tagData = insertIssueTagSchema.parse({
+      // Validate the incoming issue data using Zod schema
+      const issueData = insertIssueSchema.parse({
         ...req.body,
-        issueId
+        userId
       });
       
-      // Add tag to issue
-      await storage.addTagToIssue(tagData);
-      res.status(201).end();
+      // Create the issue in the database
+      const newIssue = await storage.createIssue(issueData);
+      
+      // Respond with the newly created issue
+      res.status(201).json(newIssue);
     } catch (error) {
+      // Handle validation errors from Zod
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid tag data", errors: error.errors });
+        return res.status(400).json({ message: "Invalid issue data", errors: error.errors });
       }
+  
+      // Pass other errors to the next middleware (for global error handling)
       next(error);
     }
-  });
+  });  
   
   app.delete("/api/issues/:issueId/tags/:tagId", ensureAuthenticated, async (req, res, next) => {
     try {
@@ -261,6 +294,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next(error);
     }
   });
+
+app.use("/uploads", express.static("uploads"));
+
+const upload = multer({ dest: "uploads/" }); // or configure as needed
+
+app.post(
+  "/api/upload",
+  ensureAuthenticated,
+  upload.single("file"),
+  async (req, res) => {
+    const file = (req as any).file;
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+    
+    // Read file as buffer
+    const fileBuffer = await fs.readFile(file.path);
+
+    // // Log what will be inserted
+    // console.log("Inserting into issueFiles from /api/upload:", {
+    //   url: `/uploads/${file.filename}`,
+    //   name: file.originalname,
+    //   size: file.size,
+    //   type: file.mimetype,
+    //   data: fileBuffer ? "[buffer present]" : "[no buffer]"
+    // });
+
+
+    // Save file metadata and content to the database
+    const inserted = await db.insert(issueFiles).values({
+      // You may need to pass issueId from the client or associate later
+      //issueId: null, // or the actual issueId if available
+      url: `/uploads/${file.filename}`,
+      name: file.originalname,
+      size: file.size,
+      type: file.mimetype,
+      data: fileBuffer
+    }).returning();
+
+    res.json({
+      url: `/uploads/${file.filename}`,
+      name: file.originalname,
+      size: file.size,
+      type: file.mimetype,
+      id: inserted[0].id // return the DB id for later association
+    });
+  }
+);
   
   // Links routes
   app.get("/api/issues/:id/links", ensureAuthenticated, async (req, res, next) => {

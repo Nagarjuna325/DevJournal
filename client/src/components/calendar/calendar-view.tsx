@@ -9,6 +9,28 @@ interface CalendarViewProps {
   issues: Issue[];
 }
 
+async function saveIssueToBackend(issue: Issue): Promise<Issue | null> {
+  try {
+    const response = await fetch('/api/issues', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(issue),
+    });
+
+    if (!response.ok) {
+      console.error('Failed to save issue:', response.statusText);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving issue:', error);
+    return null;
+  }
+}
+
 export default function CalendarView({ selectedDate, onSelectDate, issues }: CalendarViewProps) {
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   
@@ -62,6 +84,23 @@ export default function CalendarView({ selectedDate, onSelectDate, issues }: Cal
     
     const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-yellow-500', 'bg-red-500'];
     return colors.slice(0, Math.min(issuesForDate.length, 3));
+  };
+
+  // Function to handle issue creation
+  const handleCreateIssue = async () => {
+    const newIssue: Issue = {
+      id: Date.now(), // Temporary ID
+      date: selectedDate.toISOString(),
+      title: 'New Issue',
+      description: 'Description of the issue',
+      tags: ['React'], // Example tag
+    };
+
+    const savedIssue = await saveIssueToBackend(newIssue);
+    if (savedIssue) {
+      console.log('Issue saved successfully:', savedIssue);
+      // Optionally, update the parent component or state
+    }
   };
   
   return (
@@ -118,6 +157,15 @@ export default function CalendarView({ selectedDate, onSelectDate, issues }: Cal
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-4">
+        <button
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          onClick={handleCreateIssue}
+        >
+          Create Issue
+        </button>
       </div>
       
       <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 text-xs mt-2">

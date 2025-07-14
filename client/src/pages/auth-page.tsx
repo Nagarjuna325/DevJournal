@@ -20,6 +20,7 @@ const loginSchema = z.object({
 
 // Registration schema with password confirmation
 const registerSchema = insertUserSchema.extend({
+  name: z.string().min(2, "Name is required"),
   email: z.string().email("Please enter a valid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string().min(6, "Password must be at least 6 characters."),
@@ -56,6 +57,7 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      name: "",
       username: "",
       email: "",
       password: "",
@@ -159,6 +161,7 @@ export default function AuthPage() {
                 <Form {...loginForm}>
                   <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                     <CardContent className="space-y-4">
+                      
                       <FormField
                         control={loginForm.control}
                         name="username"
@@ -211,6 +214,19 @@ export default function AuthPage() {
                 <Form {...registerForm}>
                   <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
                     <CardContent className="space-y-4">
+                      <FormField
+                        control={registerForm.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter your name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                       <FormField
                         control={registerForm.control}
                         name="username"

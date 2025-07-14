@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, timestamp,customType} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -9,12 +9,14 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  name: text("name").notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   email: true,
   password: true,
+  name: true,
 });
 
 export const loginUserSchema = z.object({
@@ -94,6 +96,24 @@ export const issueLinks = pgTable("issue_links", {
   url: text("url").notNull(),
 });
 
+// Then define your bytea column like this:
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+// Issue files table
+export const issueFiles = pgTable("issue_files", {
+  id: serial("id").primaryKey(),
+  issueId: integer("issue_id").references(() => issues.id),
+  url: text("url").notNull(),
+  name: text("name").notNull(),
+  size: integer("size"),
+  type: text("type"),
+  data: bytea("data").notNull()
+});
+
 // Define the relations for issue links
 export const issueLinksRelations = relations(issueLinks, ({ one }) => ({
   issue: one(issues, {
@@ -120,6 +140,10 @@ export const insertIssueLinkSchema = createInsertSchema(issueLinks).omit({
   id: true,
 });
 
+// (Optional) Insert schema for issue files
+export const insertIssueFileSchema = createInsertSchema(issueFiles).omit({
+  id: true,
+});
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -135,6 +159,9 @@ export type InsertIssueTag = z.infer<typeof insertIssueTagSchema>;
 
 export type IssueLink = typeof issueLinks.$inferSelect;
 export type InsertIssueLink = z.infer<typeof insertIssueLinkSchema>;
+
+export type IssueFile = typeof issueFiles.$inferSelect;
+export type InsertIssueFile = z.infer<typeof insertIssueFileSchema>;
 
 // Type for AI Suggestion Response
 export interface AISuggestion {
