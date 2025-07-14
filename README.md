@@ -71,6 +71,7 @@ Files are stored in the Neon Postgres database.
 Uploaded files are shown as downloadable links in the issue cards.
 
 📌 Notes
+
 Files are stored in the database, not on disk.
 
 Ensure your Neon DB is correctly set up and accessible.
