@@ -34,38 +34,31 @@ Users can create issues, attach files (stored in Neon/Postgres DB), add related 
 ### 1. Clone the Repository
 
 
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+    git clone https://github.com/<your-username>/<repo-name>.git
+    cd <repo-name>
 2. Install Dependencies
-bash
-Copy
-Edit
-npm install
+   
+                npm install
+   
 3. Set Up Environment Variables
 Create a .env file in the root directory:
 
-ini
-Copy
-Edit
-DATABASE_URL=your-neon-db-connection-string
-OPENAI_API_KEY=your-openai-api-key
+        DATABASE_URL=your-neon-db-connection-string
+       OPENAI_API_KEY=your-openai-api-key
+   
 🔒 .env is excluded from version control for security.
 
-4. Build the Project
-bash
-Copy
-Edit
-npm run build
-5. Start the Backend Server (Production)
-bash
-Copy
-Edit
-npm start
-6. Start the Frontend (Development Mode)
-bash
-Copy
-Edit
-npm run dev
+5. Build the Project
+
+          npm run build
+6. Start the Backend Server (Production)
+
+        npm start
+7. Start the Frontend (Development Mode)
+
+       npm run dev
+
+   
 🖥️ Usage
 Visit: http://localhost:5173 (or the port shown in your terminal) for the frontend.
 
@@ -85,17 +78,15 @@ Ensure your Neon DB is correctly set up and accessible.
 Uses OpenAI's API to provide smart suggestions for debugging and resolving issues.
 
 💻 Example Commands
-bash
-Copy
-Edit
+
 # Install dependencies
-npm install
+     npm install
 
 # Build project (TypeScript + frontend)
-npm run build
+    npm run build
 
 # Start backend server (production)
-npm start
+    npm start
 
 # Start frontend (development mode)
-npm run dev
+    npm run dev
