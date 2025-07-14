@@ -19,22 +19,25 @@ AI Integration: OpenAI (for suggestions)
 Getting Started
 1. Clone the repository
    
-  git clone https://github.com/<your-username>/<repo-name>.git
-  cd <repo-name>
+git clone https://github.com/<your-username>/<repo-name>.git
+cd <repo-name>
+
 3. Install dependencies
-      npm install
+npm install
 4. Set up environment variables
        
 Create a .env file in the root directory:
-       DATABASE_URL=your-neon-db-connection-string
-       OPENAI_API_KEY=your-openai-api-key
+DATABASE_URL=your-neon-db-connection-string
+OPENAI_API_KEY=your-openai-api-key
+
 3. Build the project
-        npm run build
-4. Start the backend server
-         npm start
+npm run build
+
+5. Start the backend server
+npm start
          
-5. Start the frontend (development mode)
-        npm run dev
+6. Start the frontend (development mode)
+npm run dev
    
 Usage
 Visit http://localhost:5173 (or the port shown in your terminal) for the frontend.
